@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import streamlit as st
 import pandas as pd
 import psycopg2 as psql
-import os
 from collections import Counter
 import re
 from wordcloud import WordCloud
@@ -58,8 +57,9 @@ st.write(' ')
 
 ## Function to preprocess text
 
+stop_words = set(stopwords.words('english')) ## set stop words
+
 def preprocess_text(text):
-    stop_words = set(stopwords.words('english')) ## set stop words
     text = text.lower()  ## Convert to lowercase
     text = re.sub(r'[^\w\s]', '', text)  ## Remove punctuation
     text = re.sub(r'\s+', ' ', text).strip()  ## Remove extra whitespace
