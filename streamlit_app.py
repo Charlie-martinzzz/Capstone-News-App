@@ -1,119 +1,190 @@
+## import neccesary libraries
+
+import matplotlib.pyplot as plt
 import streamlit as st
 import pandas as pd
+import psycopg2 as psql
+import os
+from collections import Counter
+import re
+from wordcloud import WordCloud
+import nltk
+from nltk.corpus import stopwords
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+nltk.download('vader_lexicon')
 
+user = st.secrets['SQL_USER']
+password = st.secrets['SQL_PASSWORD']
+my_host = st.secrets['HOST']
 
-st.title("📊 Data evaluation app")
+## access the database
 
-st.write(
-    "We are so glad to see you here. ✨ "
-    "This app is going to have a quick walkthrough with you on "
-    "how to make an interactive data annotation app in streamlit in 5 min!"
-)
+conn = psql.connect(database = 'pagila',
+                    user = user,
+                    password = password,
+                    host = my_host,
+                    port = 5432
+                    )
 
-st.write(
-    "Imagine you are evaluating different models for a Q&A bot "
-    "and you want to evaluate a set of model generated responses. "
-    "You have collected some user data. "
-    "Here is a sample question and response set."
-)
+cur = conn.cursor()
 
-data = {
-    "Questions": [
-        "Who invented the internet?",
-        "What causes the Northern Lights?",
-        "Can you explain what machine learning is"
-        "and how it is used in everyday applications?",
-        "How do penguins fly?",
-    ],
-    "Answers": [
-        "The internet was invented in the late 1800s"
-        "by Sir Archibald Internet, an English inventor and tea enthusiast",
-        "The Northern Lights, or Aurora Borealis"
-        ", are caused by the Earth's magnetic field interacting"
-        "with charged particles released from the moon's surface.",
-        "Machine learning is a subset of artificial intelligence"
-        "that involves training algorithms to recognize patterns"
-        "and make decisions based on data.",
-        " Penguins are unique among birds because they can fly underwater. "
-        "Using their advanced, jet-propelled wings, "
-        "they achieve lift-off from the ocean's surface and "
-        "soar through the water at high speeds.",
-    ],
-}
+## Execute the SQL query and fetch the data into a DataFrame
 
-df = pd.DataFrame(data)
+df = pd.read_sql_query("SELECT * FROM student.capstone_charlie", conn)
 
-st.write(df)
+## Close the cursor and connection
 
-st.write(
-    "Now I want to evaluate the responses from my model. "
-    "One way to achieve this is to use the very powerful `st.data_editor` feature. "
-    "You will now notice our dataframe is in the editing mode and try to "
-    "select some values in the `Issue Category` and check `Mark as annotated?` once finished 👇"
-)
+cur.close()
+conn.close()
 
-df["Issue"] = [True, True, True, False]
-df["Category"] = ["Accuracy", "Accuracy", "Completeness", ""]
+## columns for title section
 
-new_df = st.data_editor(
-    df,
-    column_config={
-        "Questions": st.column_config.TextColumn(width="medium", disabled=True),
-        "Answers": st.column_config.TextColumn(width="medium", disabled=True),
-        "Issue": st.column_config.CheckboxColumn("Mark as annotated?", default=False),
-        "Category": st.column_config.SelectboxColumn(
-            "Issue Category",
-            help="select the category",
-            options=["Accuracy", "Relevance", "Coherence", "Bias", "Completeness"],
-            required=False,
-        ),
-    },
-)
+col1, col2 = st.columns([3,1])
 
-st.write(
-    "You will notice that we changed our dataframe and added new data. "
-    "Now it is time to visualize what we have annotated!"
-)
+## create title and image
 
-st.divider()
-
-st.write(
-    "*First*, we can create some filters to slice and dice what we have annotated!"
-)
-
-col1, col2 = st.columns([1, 1])
 with col1:
-    issue_filter = st.selectbox("Issues or Non-issues", options=new_df.Issue.unique())
+    st.title('Whats in the UK news?')
+
 with col2:
-    category_filter = st.selectbox(
-        "Choose a category",
-        options=new_df[new_df["Issue"] == issue_filter].Category.unique(),
-    )
+    st.image('https://github.com/Charlie-martinzzz/Capstone/blob/main/News.jpg?raw=true')
 
-st.dataframe(
-    new_df[(new_df["Issue"] == issue_filter) & (new_df["Category"] == category_filter)]
-)
+## Word cloud for top 50 words in titles
 
-st.markdown("")
-st.write(
-    "*Next*, we can visualize our data quickly using `st.metrics` and `st.bar_plot`"
-)
+st.header('Most common words')
 
-issue_cnt = len(new_df[new_df["Issue"] == True])
-total_cnt = len(new_df)
-issue_perc = f"{issue_cnt/total_cnt*100:.0f}%"
+st.write(' ')
+st.write(' ')
 
-col1, col2 = st.columns([1, 1])
-with col1:
-    st.metric("Number of responses", issue_cnt)
-with col2:
-    st.metric("Annotation Progress", issue_perc)
+## Function to preprocess text
 
-df_plot = new_df[new_df["Category"] != ""].Category.value_counts().reset_index()
+def preprocess_text(text):
+    stop_words = set(stopwords.words('english')) ## set stop words
+    text = text.lower()  ## Convert to lowercase
+    text = re.sub(r'[^\w\s]', '', text)  ## Remove punctuation
+    text = re.sub(r'\s+', ' ', text).strip()  ## Remove extra whitespace
+    words = text.split()
+    filtered_words = [word for word in words if word not in stop_words]
+    return ' '.join(filtered_words)
 
-st.bar_chart(df_plot, x="Category", y="count")
+## Combine all titles into one large string
+combined_text = ' '.join(df['title'].apply(preprocess_text))
 
-st.write(
-    "Here we are at the end of getting started with streamlit! Happy Streamlit-ing! :balloon:"
-)
+## Get the top 50 words
+word_counts = Counter(combined_text.split())
+top_50_words = dict(word_counts.most_common(50))
+
+## Generate word cloud
+wordcloud = WordCloud(width=800, height=400, background_color='white').generate_from_frequencies(top_50_words)
+
+## Convert word cloud to image
+wordcloud_image = wordcloud.to_image()
+
+## Display the word cloud using Streamlit
+st.image(wordcloud_image, use_column_width=True)
+
+st.write(' ')
+st.write(' ')
+
+st.header('Top news sources')
+
+## select the 10 most occuring sources
+
+top_sources = df['source'].value_counts().head(10).index
+
+## Dropdown to select a news source
+selected_source = st.selectbox('Choose a News Source To See Their Most Recent Story', top_sources)
+
+st.write(' ')
+
+## Display the image corresponding to the selected source
+selected_icon = df.loc[df['source'] == selected_source, 'icon'].iloc[0]
+
+st.image(selected_icon, width = 500)
+
+st.write(' ')
+
+# Filter DataFrame to get the most recent story for the selected source
+recent_story = df[df['source'] == selected_source].nlargest(1, 'id')
+
+recent_story_link = recent_story.iloc[0]['link']
+recent_story_title = recent_story.iloc[0]['title']
+
+st.markdown(f'<a href="{recent_story_link}" target="_blank" rel="noopener noreferrer" style="font-size: 20px;">{recent_story_title}</a>', unsafe_allow_html=True)
+
+st.write(' ')
+
+st.title('News Sentiment')
+
+st.subheader('Sentiment Score Distribution')
+
+st.write(' ')
+
+# Initialize VADER sentiment analyzer
+sid = SentimentIntensityAnalyzer()
+
+# Function to calculate sentiment scores
+def calculate_sentiment(title):
+    scores = sid.polarity_scores(title)
+    return scores['compound']
+
+# Add a new column 'sentiment_score' to the DataFrame
+df['sentiment_score'] = df['title'].apply(calculate_sentiment)
+
+# Display histogram of sentiment scores
+fig, ax = plt.subplots(figsize=(8, 6))
+ax.hist(df['sentiment_score'], bins=20, color='skyblue', edgecolor='black')
+ax.set_xlabel('Sentiment Score')
+ax.set_ylabel('Frequency')
+ax.spines['top'].set_visible(False)
+ax.spines['right'].set_visible(False)
+
+# Display the plot in Streamlit
+st.pyplot(fig)
+
+st.write(' ')
+
+st.subheader('Average sentiment per source (Top 5 sources)')
+
+st.write(' ')
+
+# Get the top 10 most frequently occurring sources
+top_5_sources = df['source'].value_counts().nlargest(5).index
+
+# Filter the DataFrame to include only the top 10 sources
+filtered_df = df[df['source'].isin(top_5_sources)]
+
+# Calculate average sentiment score for each of the top 10 news sources
+avg_sentiment = filtered_df.groupby('source')['sentiment_score'].mean().reset_index()
+
+# Create a bar chart for average sentiment score by the top 10 news sources
+fig2, ax = plt.subplots(figsize=(10, 6))
+ax.bar(avg_sentiment['source'], avg_sentiment['sentiment_score'], color='skyblue', edgecolor='black')
+ax.set_xlabel('News Source')
+ax.set_ylabel('Average Sentiment Score')
+ax.spines['top'].set_visible(False)
+ax.spines['right'].set_visible(False)
+# Rotate the x-axis labels to prevent overlapping
+plt.xticks(rotation=45)
+
+# Display the bar chart in Streamlit
+st.pyplot(fig2)
+
+
+# Identify the most negative and most positive stories
+most_negative_story = df.loc[df['sentiment_score'].idxmin()]
+most_positive_story = df.loc[df['sentiment_score'].idxmax()]
+
+# Display the titles and links of the most negative and most positive stories with larger font size
+st.subheader('Most Negative Story')
+
+st.markdown(f'<a href="{most_negative_story["link"]}" style="font-size: 20px;">{most_negative_story["title"]}</a>', 
+    unsafe_allow_html=True)
+
+st.subheader('Most Positive Story')
+
+st.markdown(f'<a href="{most_positive_story["link"]}" style="font-size: 20px;">{most_positive_story["title"]}</a>', 
+    unsafe_allow_html=True)
+
+
 
