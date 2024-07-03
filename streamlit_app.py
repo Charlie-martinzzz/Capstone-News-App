@@ -8,7 +8,6 @@ from collections import Counter
 import re
 from wordcloud import WordCloud
 import nltk
-from nltk.corpus import stopwords
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 
 
@@ -57,15 +56,13 @@ st.write(' ')
 
 ## Function to preprocess text
 
-stop_words = set(stopwords.words('english')) ## set stop words
-
 def preprocess_text(text):
+    text = re.sub(r'\b\w{1,2}\b', '', text)  # Remove short words
     text = text.lower()  ## Convert to lowercase
     text = re.sub(r'[^\w\s]', '', text)  ## Remove punctuation
     text = re.sub(r'\s+', ' ', text).strip()  ## Remove extra whitespace
     words = text.split()
-    filtered_words = [word for word in words if word not in stop_words]
-    return ' '.join(filtered_words)
+    return text
 
 ## Combine all titles into one large string
 combined_text = ' '.join(df['title'].apply(preprocess_text))
