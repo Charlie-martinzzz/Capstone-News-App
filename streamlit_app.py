@@ -1,6 +1,7 @@
 ## import neccesary libraries
 
 import matplotlib.pyplot as plt
+import seaborn as sns
 import streamlit as st
 import pandas as pd
 import psycopg2 as psql
@@ -10,6 +11,21 @@ from wordcloud import WordCloud
 import nltk
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 nltk.download(["vader_lexicon"])
+nltk.download(["stopwords"])
+from nltk.corpus import stopwords
+from datetime import datetime, timedelta
+
+
+## set up page
+
+st.set_page_config(
+   page_title="UK News Sentiment",
+   page_icon="📰",
+   layout="centered",
+   initial_sidebar_state="collapsed",
+)
+
+## get secrets
 
 user = st.secrets['SQL_USER']
 password = st.secrets['SQL_PASSWORD']
@@ -35,37 +51,52 @@ df = pd.read_sql_query("SELECT * FROM student.capstone_charlie", conn)
 cur.close()
 conn.close()
 
-## columns for title section
 
+
+
+## columns for title section
 col1, col2 = st.columns([3,1])
 
 ## create title and image
-
 with col1:
     st.title('Whats in the UK news?')
 
 with col2:
     st.image('https://github.com/Charlie-martinzzz/Capstone/blob/main/News.jpg?raw=true')
 
+
 ## Word cloud for top 50 words in titles
 
-st.header('Most common words')
+st.header('Words of the week')
 
 st.write(' ')
 st.write(' ')
+
+## Convert 'date' column to datetime
+df['date'] = pd.to_datetime(df['date'])
+
 
 ## Function to preprocess text
 
 def preprocess_text(text):
+    stop_words = set(stopwords.words('english'))
+    text = text.lower()  # Convert to lowercase
     text = re.sub(r'\b\w{1,2}\b', '', text)  # Remove short words
-    text = text.lower()  ## Convert to lowercase
-    text = re.sub(r'[^\w\s]', '', text)  ## Remove punctuation
-    text = re.sub(r'\s+', ' ', text).strip()  ## Remove extra whitespace
+    text = re.sub(r'[^\w\s]', '', text)  # Remove punctuation
+    text = re.sub(r'\s+', ' ', text).strip()  # Remove extra whitespace
     words = text.split()
-    return text
+    filtered_words = [word for word in words if word not in stop_words]
+    return ' '.join(filtered_words)
+
+## Get the current date and the start of the week 
+current_date = datetime.now()
+start_of_week = current_date - timedelta(days=current_date.weekday())
+
+## Filter DataFrame for rows from the current week
+df_current_week = df[df['date'] >= start_of_week]
 
 ## Combine all titles into one large string
-combined_text = ' '.join(df['title'].apply(preprocess_text))
+combined_text = ' '.join(df_current_week['title'].apply(preprocess_text))
 
 ## Get the top 50 words
 word_counts = Counter(combined_text.split())
@@ -77,7 +108,7 @@ wordcloud = WordCloud(width=800, height=400, background_color='white').generate_
 ## Convert word cloud to image
 wordcloud_image = wordcloud.to_image()
 
-## Display the word cloud using Streamlit
+## Display the word cloud 
 st.image(wordcloud_image, use_column_width=True)
 
 st.write(' ')
@@ -85,8 +116,9 @@ st.write(' ')
 
 st.header('Top news sources')
 
-## select the 10 most occuring sources
 
+
+## select the 10 most occuring sources
 top_sources = df['source'].value_counts().head(10).index
 
 ## Dropdown to select a news source
@@ -110,6 +142,9 @@ recent_story_title = recent_story.iloc[0]['title']
 st.markdown(f'<a href="{recent_story_link}" target="_blank" rel="noopener noreferrer" style="font-size: 20px;">{recent_story_title}</a>', unsafe_allow_html=True)
 
 st.write(' ')
+
+
+
 
 st.title('News Sentiment')
 
@@ -161,11 +196,11 @@ ax.set_xlabel('News Source')
 ax.set_ylabel('Average Sentiment Score')
 ax.spines['top'].set_visible(False)
 ax.spines['right'].set_visible(False)
-# Rotate the x-axis labels to prevent overlapping
 plt.xticks(rotation=45)
 
 # Display the bar chart in Streamlit
 st.pyplot(fig2)
+
 
 
 # Identify the most negative and most positive stories
