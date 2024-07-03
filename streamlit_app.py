@@ -11,7 +11,7 @@ from wordcloud import WordCloud
 import nltk
 from nltk.corpus import stopwords
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
-nltk.download('vader_lexicon')
+
 
 user = st.secrets['SQL_USER']
 password = st.secrets['SQL_PASSWORD']
