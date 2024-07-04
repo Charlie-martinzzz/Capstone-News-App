@@ -1,6 +1,7 @@
 ## import neccesary libraries
 
 import matplotlib.pyplot as plt
+import seaborn as sns
 import streamlit as st
 import pandas as pd
 import psycopg2 as psql
@@ -23,6 +24,23 @@ st.set_page_config(
    layout="centered",
    initial_sidebar_state="collapsed",
 )
+
+
+# Custom CSS to set background image for sidebar
+custom_css = """
+<style>
+.sidebar .sidebar-content {
+    background-image: url('https://github.com/Charlie-martinzzz/Capstone/blob/main/News.jpg?raw=true'); /* Replace with your image URL */
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    height: 100vh; /* Adjust height as needed */
+}
+</style>
+"""
+
+# Inject the custom CSS into the Streamlit app
+st.markdown(custom_css, unsafe_allow_html=True)
 
 ## get secrets
 
@@ -52,31 +70,19 @@ conn.close()
 
 
 
-
-## columns for title section
-col1, col2 = st.columns([3,1])
-
 ## create title and image
-with col1:
-    st.title('Whats in the UK news?')
-
-with col2:
-    st.image('https://github.com/Charlie-martinzzz/Capstone/blob/main/News.jpg?raw=true')
+st.title('Whats in the UK news?')
 
 
 ## Word cloud for top 50 words in titles
 
-st.header('Words of the week')
-
 st.write(' ')
 st.write(' ')
 
-## Convert 'date' column to datetime
+# Convert 'date' column to datetime
 df['date'] = pd.to_datetime(df['date'])
 
-
-## Function to preprocess text
-
+# Function to preprocess text
 def preprocess_text(text):
     stop_words = set(stopwords.words('english'))
     text = text.lower()  # Convert to lowercase
@@ -87,41 +93,59 @@ def preprocess_text(text):
     filtered_words = [word for word in words if word not in stop_words]
     return ' '.join(filtered_words)
 
-## Get the current date and the start of the week 
-current_date = datetime.now()
-start_of_week = current_date - timedelta(days=current_date.weekday())
 
-## Filter DataFrame for rows from the current week
-df_current_week = df[df['date'] >= start_of_week]
+st.header('Word Cloud Generator')
 
-## Combine all titles into one large string
-combined_text = ' '.join(df_current_week['title'].apply(preprocess_text))
+# Date input for start and end date
+start_date = st.date_input('Start date', min_value=datetime(2024, 6, 29), value=datetime(2024, 6, 29))
 
-## Get the top 50 words
+end_date = st.date_input('End date', min_value=start_date, value=datetime.now().date())
+
+st.write(' ')
+
+# Filter DataFrame for the selected date range
+df_filtered = df[(df['date'] >= pd.to_datetime(start_date)) & (df['date'] <= pd.to_datetime(end_date))]
+
+# Combine all titles into one large string
+combined_text = ' '.join(df_filtered['title'].apply(preprocess_text))
+
+# Get the top 50 words
 word_counts = Counter(combined_text.split())
 top_50_words = dict(word_counts.most_common(50))
 
-## Generate word cloud
+# Generate word cloud
 wordcloud = WordCloud(width=800, height=400, background_color='white').generate_from_frequencies(top_50_words)
 
-## Convert word cloud to image
+# Convert word cloud to image
 wordcloud_image = wordcloud.to_image()
 
-## Display the word cloud 
+# Display the word cloud 
 st.image(wordcloud_image, use_column_width=True)
-
 st.write(' ')
 st.write(' ')
 
 st.header('Top news sources')
 
 
+col1, col2 = st.columns(2)
 
 ## select the 10 most occuring sources
 top_sources = df['source'].value_counts().head(10).index
 
 ## Dropdown to select a news source
-selected_source = st.selectbox('Choose a News Source To See Their Most Recent Story', top_sources)
+with col1:
+    selected_source = st.selectbox('Choose a News Source To See Their Most Recent Story', top_sources)
+
+# Filter DataFrame to get the most recent story for the selected source
+recent_story = df[df['source'] == selected_source].nlargest(1, 'id')
+
+recent_story_link = recent_story.iloc[0]['link']
+recent_story_title = recent_story.iloc[0]['title']
+
+with col2:
+    st.write(' ')
+    st.markdown(f'<a href="{recent_story_link}" target="_blank" rel="noopener noreferrer" style="font-size: 20px;">{recent_story_title}</a>', unsafe_allow_html=True)
+
 
 st.write(' ')
 
@@ -132,13 +156,6 @@ st.image(selected_icon, width = 500)
 
 st.write(' ')
 
-# Filter DataFrame to get the most recent story for the selected source
-recent_story = df[df['source'] == selected_source].nlargest(1, 'id')
-
-recent_story_link = recent_story.iloc[0]['link']
-recent_story_title = recent_story.iloc[0]['title']
-
-st.markdown(f'<a href="{recent_story_link}" target="_blank" rel="noopener noreferrer" style="font-size: 20px;">{recent_story_title}</a>', unsafe_allow_html=True)
 
 st.write(' ')
 
@@ -200,7 +217,40 @@ plt.xticks(rotation=45)
 # Display the bar chart in Streamlit
 st.pyplot(fig2)
 
+st.write(' ')
+st.write(' ')
 
+st.subheader('Average sentiment score per day')
+
+st.write(' ')
+st.write(' ')
+
+# Filter the DataFrame to include only dates from 2024-06-29 onwards
+start_filter_date = pd.Timestamp('2024-06-29')
+filtered_df2 = df[df['date'] >= start_filter_date]
+
+# Calculate average sentiment score by date
+avg_sentiment_by_date = filtered_df2.groupby('date')['sentiment_score'].mean().reset_index()
+
+# Create a time series plot of sentiment scores over time
+fig3, ax = plt.subplots(figsize=(12, 6))
+sns.lineplot(data=avg_sentiment_by_date, x='date', y='sentiment_score', marker='o', ax=ax)
+ax.set_ylabel('Average Sentiment Score')
+
+
+# Customize x-axis to show only the start and end dates
+start_date = avg_sentiment_by_date['date'].min()
+end_date = avg_sentiment_by_date['date'].max()
+ax.set_xticks([start_date, end_date])
+ax.set_xticklabels([start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')])
+ax.spines['top'].set_visible(False)
+ax.spines['right'].set_visible(False)
+
+# Display the time series plot in Streamlit
+st.pyplot(fig3)
+
+st.write(' ')
+st.write(' ')
 
 # Identify the most negative and most positive stories
 most_negative_story = df.loc[df['sentiment_score'].idxmin()]
@@ -209,13 +259,10 @@ most_positive_story = df.loc[df['sentiment_score'].idxmax()]
 # Display the titles and links of the most negative and most positive stories with larger font size
 st.subheader('Most Negative Story')
 
-st.markdown(f'<a href="{most_negative_story["link"]}" style="font-size: 20px;">{most_negative_story["title"]}</a>', 
+st.markdown(f'<a href="{most_negative_story["link"]}" style="font-size: 20px; color: red;">{most_negative_story["title"]}</a>', 
     unsafe_allow_html=True)
 
 st.subheader('Most Positive Story')
 
-st.markdown(f'<a href="{most_positive_story["link"]}" style="font-size: 20px;">{most_positive_story["title"]}</a>', 
+st.markdown(f'<a href="{most_positive_story["link"]}" style="font-size: 20px; color: green;">{most_positive_story["title"]}</a>', 
     unsafe_allow_html=True)
-
-
-
