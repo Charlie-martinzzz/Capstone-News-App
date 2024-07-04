@@ -9,8 +9,8 @@ from collections import Counter
 import re
 from wordcloud import WordCloud
 import nltk
-from nltk.sentiment.vader import SentimentIntensityAnalyzer
 nltk.download(["vader_lexicon"])
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
 nltk.download(["stopwords"])
 from nltk.corpus import stopwords
 from datetime import datetime, timedelta
