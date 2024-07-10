@@ -25,6 +25,8 @@ st.set_page_config(
    initial_sidebar_state="auto",
 )
 
+## add the background image
+
 def add_bg_from_local():
     st.markdown(
         f"""
@@ -39,8 +41,6 @@ def add_bg_from_local():
     )
 
 add_bg_from_local()
-
-
 
 
 ## get secrets from streamlit secrets - must be in the gitignore for security
@@ -87,7 +87,7 @@ st.write('Choose a start and end date to see the top 50 words')
 
 ## Firstly, create the function to preprocess text
 def preprocess_text(text):
-    stop_words = set(stopwords.words('english'))
+    stop_words = set(stopwords.words('english')) # set stopwords to english
     text = text.lower()  # Convert to lowercase
     text = re.sub(r'\b\w{1,2}\b', '', text)  # Remove short words
     text = re.sub(r'[^\w\s]', '', text)  # Remove punctuation
@@ -100,11 +100,10 @@ def preprocess_text(text):
 ## Convert 'date' column to datetime
 df['date'] = pd.to_datetime(df['date'])
 
-
+## create columns
 col1, col2 = st.columns([1,1])
 
 ## Date input for start and end date
-
 with col1:
     start_date = st.date_input('Start date', min_value=datetime(2024, 6, 29), value=datetime(2024, 6, 29))
 with col2:
@@ -134,9 +133,9 @@ st.image(wordcloud_image, use_column_width=True)
 st.write(' ')
 st.write(' ')
 
-st.header('Top news sources')
-
 ## Top 10 sources and recent story link
+
+st.header('Top news sources')
 
 col3, col4 = st.columns(2)
 
@@ -191,40 +190,47 @@ df['sentiment_score'] = df['title'].apply(calculate_sentiment)
 ## Dropdown box for selecting which figure to display
 figure_choice = st.selectbox('Select Figure', ['Sentiment Score Distribution', 'Average sentiment per source (Top 5 sources)', 'Average sentiment score per day'])
 
-# Display selected figure based on user choice
+## Display selected figure based on user choice
+
+## This first figure displays the sentiment score distribution for all titles
+
 if figure_choice == 'Sentiment Score Distribution':
-    st.subheader('Sentiment Score Distribution')
-    fig, ax = plt.subplots(figsize=(8, 6))
-    ax.hist(df['sentiment_score'], bins=20, color='skyblue', edgecolor='black')
-    ax.set_xlabel('Sentiment Score')
-    ax.set_ylabel('Frequency')
-    ax.spines['top'].set_visible(False)
+    st.subheader('Sentiment Score Distribution') # create subheader
+    fig, ax = plt.subplots(figsize=(8, 6)) # set figure size
+    ax.hist(df['sentiment_score'], bins=20, color='skyblue', edgecolor='black') # plot parameters
+    ax.set_xlabel('Sentiment Score') # label axis
+    ax.set_ylabel('Frequency') # label axis
+    ax.spines['top'].set_visible(False) # remove spines for less clutter
     ax.spines['right'].set_visible(False)
     st.pyplot(fig)
+
+## This second plot shows the average sentiment score per source
 
 elif figure_choice == 'Average sentiment per source (Top 5 sources)':
     st.subheader('Average sentiment per source (Top 5 sources)')
-    top_5_sources = df['source'].value_counts().nlargest(5).index
+    top_5_sources = df['source'].value_counts().nlargest(5).index # filter to top 5 sources
     filtered_df = df[df['source'].isin(top_5_sources)]
-    avg_sentiment = filtered_df.groupby('source')['sentiment_score'].mean().reset_index()
-    fig, ax = plt.subplots(figsize=(10, 6))
-    ax.bar(avg_sentiment['source'], avg_sentiment['sentiment_score'], color='skyblue', edgecolor='black')
-    ax.set_xlabel('News Source')
-    ax.set_ylabel('Average Sentiment Score')
-    ax.spines['top'].set_visible(False)
+    avg_sentiment = filtered_df.groupby('source')['sentiment_score'].mean().reset_index() # find average sentiment
+    fig, ax = plt.subplots(figsize=(10, 6)) # plot size
+    ax.bar(avg_sentiment['source'], avg_sentiment['sentiment_score'], color='skyblue', edgecolor='black') # plot paramters
+    ax.set_xlabel('News Source') # label axis
+    ax.set_ylabel('Average Sentiment Score') # label axis
+    ax.spines['top'].set_visible(False) # remove spines for less clutter
     ax.spines['right'].set_visible(False)
-    plt.xticks(rotation=45)
+    plt.xticks(rotation=45) # rotate xticks for readability
     st.pyplot(fig)
+
+## this third plot shows the average sentiment score per day
 
 elif figure_choice == 'Average sentiment score per day':
     st.subheader('Average sentiment score per day')
-    start_filter_date = pd.Timestamp('2024-06-29')
-    filtered_df2 = df[df['date'] >= start_filter_date]
+    start_filter_date = pd.Timestamp('2024-06-29') # set start date limit
+    filtered_df2 = df[df['date'] >= start_filter_date] # filter for start date
     avg_sentiment_by_date = filtered_df2.groupby('date')['sentiment_score'].mean().reset_index()
-    fig, ax = plt.subplots(figsize=(10, 6))
-    sns.lineplot(data=avg_sentiment_by_date, x='date', y='sentiment_score', marker='o', ax=ax)
-    ax.set_ylabel('Average Sentiment Score')
-    start_date = avg_sentiment_by_date['date'].min()
+    fig, ax = plt.subplots(figsize=(10, 6)) # plot size
+    sns.lineplot(data=avg_sentiment_by_date, x='date', y='sentiment_score', marker='o', ax=ax) # plot parameters
+    ax.set_ylabel('Average Sentiment Score') # label axis
+    start_date = avg_sentiment_by_date['date'].min() # ensure x axis is only labelled with start and end date to avoid clutter
     end_date = avg_sentiment_by_date['date'].max()
     ax.set_xticks([start_date, end_date])
     ax.set_xticklabels([start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')])
