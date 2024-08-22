@@ -4,9 +4,14 @@ A simple Streamlit app showcasing Uk news trends, exploring both popular stories
 
 [![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://capstone-news-app-kefspgzdrip.streamlit.app/)
 
+capstone.py contains the python script, running on a CRON job that accesses the API and stores the data is a postgreSQL database.
+
+streamlit_app.py contains the code for the streamlit app.
+
+
 ### PLEASE NOTE:
     
- This app succesfully scraped data from 29/06/2024 once per hour up until 08/07/2024. As of this date the API requests have been exhausted and no data can be added. Selecting dates after this end date in any date selection boxes within the app will result in an error.
+This app succesfully scraped data from 29/06/2024 once per hour up until 08/07/2024 before running out of API searches. The searches are reset each month, thus selecting dates after 08/07/2024 will result in missing data and skewed graphs.
 
 ### It is recommended to view this app in light mode. This app has 3 main sections:
 
