@@ -245,7 +245,7 @@ st.write(' ')
 most_negative_story = df.loc[df['sentiment_score'].idxmin()]
 most_positive_story = df.loc[df['sentiment_score'].idxmax()]
 
-# Display the titles and links of the most negative and most positive stories with larger font size
+# Display the titles and links of the most negative and most positive stories 
 st.subheader('Most Negative Story')
 
 st.markdown(f'<a href="{most_negative_story["link"]}" style="font-size: 20px; color: red;">{most_negative_story["title"]}</a>', 
